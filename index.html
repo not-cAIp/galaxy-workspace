@@ -131,14 +131,16 @@
 <script>
   const RETURN_BASE = "https://saraliuxt-coder.github.io/idol-fall/";
 
-  // 5 个 F 文件全部打开后，06_安保 才会在列表里真正可点开——之前只是
+  // 4 个 F 文件全部打开后，06_安保 才会在列表里真正可点开——之前只是
   // 显示一个带锁图标的占位行，点了也没有任何反馈的死按钮不如不做。
-  const F_DOCS = ["f01", "f02", "f03", "f04", "f05"];
+  const F_DOCS = ["f02", "f03", "f04", "f05"];
   const openedF = new Set(JSON.parse(sessionStorage.getItem("gw-f-opened") || "[]"));
   // 这次打开会话里已经"准备好"、还没有通过返回链接同步回主站的线索。
   const readyClues = new Set(JSON.parse(sessionStorage.getItem("gw-ready-clues") || "[]"));
   // F05 / A01 的"查看历史版本"是否已经点开过。
   const revealed = new Set(JSON.parse(sessionStorage.getItem("gw-revealed") || "[]"));
+  // f04 单独锁了一层，答案是苏昭的账号名，跟站点整体的口令不是一回事。
+  const unlockedFiles = new Set(JSON.parse(sessionStorage.getItem("gw-unlocked-files") || "[]"));
 
   function markFOpened(id) {
     if (!openedF.has(id)) {
@@ -160,11 +162,10 @@
     "陈屿_经纪人文件夹": {
       type: "folder",
       children: {
-        "F01_0913_行程执行.pdf": { type: "file", doc: "f01" },
-        "F02_周林争吵_现场录音.m4a": { type: "file", doc: "f02" },
-        "F03_林安_旧平台风险备注.txt": { type: "file", doc: "f03" },
-        "F04_艺人关系风险评估_2019.txt": { type: "file", doc: "f04" },
-        "F05_周年企划权限交接.txt": { type: "file", doc: "f05" },
+        "F01_周林争吵_现场录音.m4a": { type: "file", doc: "f02" },
+        "F02_林安_旧平台风险备注.txt": { type: "file", doc: "f03" },
+        "F03_艺人关系风险评估_2019.txt": { type: "file", doc: "f04", locked: true },
+        "F04_周年企划权限交接.txt": { type: "file", doc: "f05" },
       }
     },
     "06_安保": {
@@ -179,11 +180,6 @@
   };
 
   const DOCS = {
-    f01: {
-      title: "0913_行程执行.pdf",
-      meta: "最后编辑 09-14 01:10 · 执行部",
-      body: "《9/13 当晚行程与人员往来记录》\n\n17:30  上海活动场地入场\n19:10  活动结束，艺人退场\n19:40  原定飞杭州（后取消，见车辆安排）\n22:35  林安临时到访\n22:58  林安离开（车辆记录连续，可查）\n23:08  沈溪离开房间附近\n23:20  陈屿驾车离开（停车场出场记录、道路收费记录均可查）\n\n备注：贺寻当晚负责周年物料与场地设备衔接，其深夜行踪不在本表统计范围内——设备组通常不需要打卡。",
-    },
     f02: {
       title: "周林争吵_现场录音.m4a",
       meta: "现场备用录音 · 22:36 前后",
@@ -200,6 +196,8 @@
       body: "对象：周晏星／Z女士\n经纪执行确认：双方自练习生阶段起存在稳定私人关系。\n商业评估：周晏星当前人气测试、镜头反馈与品牌意向显著高于同组候选人。\n处理建议：不调整出道位，不启动纪律处分；对外按『无确证／私生联想』处理。\n经手人：陈屿",
       key: true,
       clue: "c37",
+      lockQuestion: "那个女人是谁？",
+      lockAnswers: ["拾光の猫", "拾光猫", "拾光", "shiguangneko"],
     },
     f05: {
       title: "周年企划权限交接.txt",
@@ -258,7 +256,7 @@
         <div class="crumbs" id="crumbs"></div>
         <div class="panel doc-view">
           <div class="dtitle">🔒 06_安保</div>
-          <div class="doc-body">这个文件夹暂不可访问。把陈屿经纪人文件夹里的 5 份文件都看完，再回来试试。</div>
+          <div class="doc-body">这个文件夹暂不可访问。把陈屿经纪人文件夹里的文件都看完，再回来试试。</div>
         </div>
       `;
       renderCrumbs(app.querySelector("#crumbs"), path);
@@ -277,17 +275,57 @@
 
     if (node && node.type === "file") {
       const doc = DOCS[node.doc];
-      markFOpened(node.doc);
-      if (doc?.key) markClueReady(doc.clue);
       app.innerHTML = `
         <div class="crumbs" id="crumbs"></div>
         <div class="panel doc-view" id="docview"></div>
         <div id="return-slot"></div>
       `;
       renderCrumbs(app.querySelector("#crumbs"), path);
+
+      if (node.locked && !unlockedFiles.has(node.doc)) {
+        renderFileGate(app.querySelector("#docview"), doc, node);
+        return;
+      }
+
+      markFOpened(node.doc);
+      if (doc?.key) markClueReady(doc.clue);
       renderDoc(app.querySelector("#docview"), doc, node);
       renderReturnSlot(app.querySelector("#return-slot"));
     }
+  }
+
+  // 这份文件的解锁口令跟站点整体的『安全验证』不是一回事——单独锁了
+  // 一层，答案是苏昭的账号名，玩家得先自己在别处找到这个账号才知道
+  // 要填什么。
+  function renderFileGate(el, doc, node) {
+    el.innerHTML = `
+      <div class="dtitle">${doc.title}</div>
+      <div class="dmeta">此文件已加密，需要单独验证</div>
+      <div class="gate-card" style="padding:18px;">
+        <p style="margin:0 0 14px;">${escapeHtml(doc.lockQuestion || "请输入访问密钥")}</p>
+        <input id="file-gate-input" type="text" placeholder="……" autocomplete="off" style="margin-bottom:10px;" />
+        <button id="file-gate-btn">验证并查看</button>
+        <div id="file-gate-msg"></div>
+      </div>
+    `;
+    const input = el.querySelector("#file-gate-input");
+    const msg = el.querySelector("#file-gate-msg");
+    function tryFileUnlock() {
+      const val = input.value.trim().toLowerCase().replace(/[\s@._-]/g, "");
+      const accepted = (doc.lockAnswers || []).map((s) => s.toLowerCase().replace(/[\s@._-]/g, ""));
+      if (accepted.includes(val)) {
+        unlockedFiles.add(node.doc);
+        sessionStorage.setItem("gw-unlocked-files", JSON.stringify([...unlockedFiles]));
+        markFOpened(node.doc);
+        if (doc?.key) markClueReady(doc.clue);
+        renderDoc(el, doc, node);
+        renderReturnSlot(document.getElementById("return-slot"));
+        return;
+      }
+      msg.innerHTML = `<div class="gate-err">不正确。</div>`;
+    }
+    el.querySelector("#file-gate-btn").addEventListener("click", tryFileUnlock);
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") tryFileUnlock(); });
   }
 
   function renderCrumbs(el, path) {
@@ -306,12 +344,17 @@
     const entries = Object.entries(children);
     el.innerHTML = entries.map(([name, n]) => {
       const gatedLocked = n.gated && !F_DOCS.every((d) => openedF.has(d));
+      const fileLocked = n.type === "file" && n.locked && !unlockedFiles.has(n.doc);
+      const icon = n.type === "folder" ? (gatedLocked ? "🔒" : "📁") : (fileLocked ? "🔒" : "📄");
+      const sub2 = n.type === "folder"
+        ? (gatedLocked ? "尚未解锁 · 先看完经纪人文件夹" : "文件夹")
+        : (fileLocked ? "已加密" : (DOCS[n.doc]?.meta || ""));
       return `
       <div class="row ${gatedLocked ? "locked" : ""}" data-name="${name}">
-        <div class="ic ${n.type === "file" ? "file" : ""}">${n.type === "folder" ? (gatedLocked ? "🔒" : "📁") : "📄"}</div>
+        <div class="ic ${n.type === "file" ? "file" : ""}">${icon}</div>
         <div class="meta">
           <div class="name">${name}</div>
-          <div class="sub2">${n.type === "folder" ? (gatedLocked ? "尚未解锁 · 先看完经纪人文件夹" : "文件夹") : (DOCS[n.doc]?.meta || "")}</div>
+          <div class="sub2">${sub2}</div>
         </div>
         <div class="chev">${gatedLocked ? "" : "›"}</div>
       </div>
