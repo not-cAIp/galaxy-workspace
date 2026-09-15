@@ -128,6 +128,7 @@
   const RETURN_BASE = "https://saraliuxt-coder.github.io/idol-fall/";
   const KEY_DOCS = ["vehicle", "statement", "prnotes"];
   const opened = new Set(JSON.parse(sessionStorage.getItem("gw-opened") || "[]"));
+  const unlockedFiles = new Set(JSON.parse(sessionStorage.getItem("gw-unlocked-files") || "[]"));
 
   const TREE = {
     "晏星_0913行程执行": {
@@ -153,6 +154,9 @@
           "0914_statement_v1.docx": { type: "file", doc: "statement", key: true },
           "0914_statement_final.docx": { type: "file", doc: "statement", key: true },
           "PR_notes.txt": { type: "file", doc: "prnotes", key: true },
+        }},
+        "06_安保": { type: "folder", children: {
+          "访客异常记录.txt": { type: "file", doc: "visitorlog", locked: true },
         }},
       }
     }
@@ -210,6 +214,11 @@
       meta: "最后编辑 09-14 04:50 · 公关组（内部）",
       body: "对外口径要点：\n\n· 杭州行程不写\n· 私人访客不写\n· 以警方最终口径为准\n· 不回应网络定位截图\n\n以上为内部沟通要点，不对外发送。",
     },
+    visitorlog: {
+      title: "访客异常记录.txt",
+      meta: "前台/安保台记录 · 未对外公开",
+      body: "09-13 21:40  一名男子来访，自称『苏昭男友』，说想在楼下等她，登记后允许在大堂等候，后自行离开，未上楼。\n\n09-13 23:30  同一人再次出现在小区附近。这次没有走大堂登记——地下车库门禁 23:29 有一次外部读卡异常，具体是谁刷的卡没有查清楚，监控角度也没拍全。\n\n当时值班的觉得没什么大不了，没往上报。现在回头看，这条记录应该早点交上去。",
+    },
   };
 
   function render(path) {
@@ -253,9 +262,45 @@
         <div id="return-slot"></div>
       `;
       renderCrumbs(app.querySelector("#crumbs"), path);
-      renderDoc(app.querySelector("#docview"), doc, node);
+      if (node.locked && !unlockedFiles.has(node.doc)) {
+        renderFileGate(app.querySelector("#docview"), doc, node);
+      } else {
+        renderDoc(app.querySelector("#docview"), doc, node);
+      }
       renderReturnSlot(app.querySelector("#return-slot"));
     }
+  }
+
+  // 这个文件的解锁口令跟站点整体的『安全验证』不是一回事——单独锁了
+  // 一层，答案是苏昭那个账号的名字（拾光の猫），玩家得先自己在别处
+  // 找到这个账号才知道要填什么。
+  function renderFileGate(el, doc, node) {
+    el.innerHTML = `
+      <div class="dtitle">${doc.title}</div>
+      <div class="dmeta">此文件已加密，需要单独验证</div>
+      <div class="gate-card" style="padding:18px;">
+        <p style="margin:0 0 14px;">这份记录涉及个人隐私，需要输入与本次事件相关的一个账号名称才能查看。</p>
+        <input id="file-gate-input" type="text" placeholder="账号名称" autocomplete="off" style="margin-bottom:10px;" />
+        <button id="file-gate-btn">验证并查看</button>
+        <div id="file-gate-msg"></div>
+      </div>
+    `;
+    const input = el.querySelector("#file-gate-input");
+    const msg = el.querySelector("#file-gate-msg");
+    function tryFileUnlock() {
+      const val = input.value.trim().toLowerCase().replace(/[\s@._-]/g, "");
+      const accepted = ["拾光の猫", "拾光猫", "拾光", "shiguangneko"].map((s) => s.toLowerCase().replace(/[\s@._-]/g, ""));
+      if (accepted.includes(val)) {
+        unlockedFiles.add(node.doc);
+        sessionStorage.setItem("gw-unlocked-files", JSON.stringify([...unlockedFiles]));
+        renderDoc(el, doc, node);
+        renderReturnSlot(document.getElementById("return-slot"));
+        return;
+      }
+      msg.innerHTML = `<div class="gate-err">账号名称不正确。</div>`;
+    }
+    el.querySelector("#file-gate-btn").addEventListener("click", tryFileUnlock);
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") tryFileUnlock(); });
   }
 
   function renderCrumbs(el, path) {
@@ -274,10 +319,10 @@
     const entries = Object.entries(children);
     el.innerHTML = entries.map(([name, n]) => `
       <div class="row" data-name="${name}">
-        <div class="ic ${n.type === "file" ? "file" : ""}">${n.type === "folder" ? "📁" : "📄"}</div>
+        <div class="ic ${n.type === "file" ? "file" : ""}">${n.type === "folder" ? "📁" : (n.locked && !unlockedFiles.has(n.doc) ? "🔒" : "📄")}</div>
         <div class="meta">
           <div class="name">${name}</div>
-          <div class="sub2">${n.type === "folder" ? "文件夹" : (DOCS[n.doc]?.meta || "")}</div>
+          <div class="sub2">${n.type === "folder" ? "文件夹" : (n.locked && !unlockedFiles.has(n.doc) ? "已加密" : (DOCS[n.doc]?.meta || ""))}</div>
         </div>
         <div class="chev">›</div>
       </div>
