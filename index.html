@@ -42,6 +42,8 @@
   }
   .row:last-child{border-bottom:none;}
   .row:hover{background:var(--surface-2);}
+  .row.locked{cursor:default;opacity:.65;}
+  .row.locked:hover{background:none;}
   .row .ic{
     width:34px;height:34px;border-radius:8px;flex:none;
     display:flex;align-items:center;justify-content:center;font-size:15px;
@@ -82,6 +84,8 @@
   .return-panel a{color:var(--accent);font-size:13px;text-decoration:none;font-weight:600;}
   .return-panel a:hover{text-decoration:underline;}
   .return-panel p{font-size:11.5px;color:var(--ink-faint);margin:0 0 10px;}
+  .history-toggle{margin-top:12px;font-size:12.5px;color:var(--accent);cursor:pointer;}
+  .history-toggle:hover{text-decoration:underline;}
 
   .gate-wrap{max-width:360px;margin:40px auto 0;padding:0 16px;}
   .gate-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:24px;}
@@ -126,98 +130,107 @@
 
 <script>
   const RETURN_BASE = "https://saraliuxt-coder.github.io/idol-fall/";
-  const KEY_DOCS = ["vehicle", "statement", "prnotes"];
-  const opened = new Set(JSON.parse(sessionStorage.getItem("gw-opened") || "[]"));
-  const unlockedFiles = new Set(JSON.parse(sessionStorage.getItem("gw-unlocked-files") || "[]"));
+
+  // 5 个 F 文件全部打开后，06_安保 才会在列表里真正可点开——之前只是
+  // 显示一个带锁图标的占位行，点了也没有任何反馈的死按钮不如不做。
+  const F_DOCS = ["f01", "f02", "f03", "f04", "f05"];
+  const openedF = new Set(JSON.parse(sessionStorage.getItem("gw-f-opened") || "[]"));
+  // 这次打开会话里已经"准备好"、还没有通过返回链接同步回主站的线索。
+  const readyClues = new Set(JSON.parse(sessionStorage.getItem("gw-ready-clues") || "[]"));
+  // F05 / A01 的"查看历史版本"是否已经点开过。
+  const revealed = new Set(JSON.parse(sessionStorage.getItem("gw-revealed") || "[]"));
+
+  function markFOpened(id) {
+    if (!openedF.has(id)) {
+      openedF.add(id);
+      sessionStorage.setItem("gw-f-opened", JSON.stringify([...openedF]));
+    }
+  }
+  function markClueReady(clue) {
+    if (!clue || readyClues.has(clue)) return;
+    readyClues.add(clue);
+    sessionStorage.setItem("gw-ready-clues", JSON.stringify([...readyClues]));
+  }
+  function markRevealed(id) {
+    revealed.add(id);
+    sessionStorage.setItem("gw-revealed", JSON.stringify([...revealed]));
+  }
 
   const TREE = {
-    "晏星_0913行程执行": {
+    "陈屿_经纪人文件夹": {
       type: "folder",
       children: {
-        "01_流程": { type: "folder", children: {
-          "0913_执行单_v3.pdf": { type: "file", doc: "runsheet" },
-          "0914_杭州录制call_sheet.pdf": { type: "file", doc: "callsheet" },
-        }},
-        "02_交通": { type: "folder", children: {
-          "车辆安排.xlsx": { type: "file", doc: "vehicle", key: true },
-          "航班确认.pdf": { type: "file", doc: "flight" },
-        }},
-        "03_商务": { type: "folder", children: {
-          "BRAND_A_现场要求.pdf": { type: "file", doc: "brand" },
-          "直播口播_final.docx": { type: "file", doc: "koubo" },
-        }},
-        "04_艺人": { type: "folder", children: {
-          "YX_特殊事项.txt": { type: "file", doc: "special" },
-          "妆发确认.jpg": { type: "file", doc: "makeup" },
-        }},
-        "05_PR": { type: "folder", children: {
-          "0914_statement_v1.docx": { type: "file", doc: "statement", key: true },
-          "0914_statement_final.docx": { type: "file", doc: "statement", key: true },
-          "PR_notes.txt": { type: "file", doc: "prnotes", key: true },
-        }},
-        "06_安保": { type: "folder", children: {
-          "访客异常记录.txt": { type: "file", doc: "visitorlog", locked: true },
-        }},
+        "F01_0913_行程执行.pdf": { type: "file", doc: "f01" },
+        "F02_周林争吵_现场录音.m4a": { type: "file", doc: "f02" },
+        "F03_林安_旧平台风险备注.txt": { type: "file", doc: "f03" },
+        "F04_艺人关系风险评估_2019.txt": { type: "file", doc: "f04" },
+        "F05_周年企划权限交接.txt": { type: "file", doc: "f05" },
+      }
+    },
+    "06_安保": {
+      type: "folder",
+      gated: true,
+      children: {
+        "A01_员工通道记录.txt": { type: "file", doc: "a01" },
+        "A02_场馆清点证明.jpg": { type: "file", doc: "a02" },
+        "A03_监控维修申请.txt": { type: "file", doc: "a03" },
       }
     }
   };
 
   const DOCS = {
-    runsheet: {
-      title: "0913_执行单_v3.pdf",
-      meta: "最后编辑 09-12 22:40 · 执行部",
-      body: "《9/13 执行单 v3》\n\n17:30  上海活动场地入场\n18:00  品牌活动开始\n19:10  活动结束，艺人退场\n19:40  前往虹桥机场\n21:15  MU5301  上海虹桥 → 杭州萧山\n22:10  杭州酒店入住\n\n备注：次日 10:00 杭州录制，07:30 酒店集合。",
+    f01: {
+      title: "0913_行程执行.pdf",
+      meta: "最后编辑 09-14 01:10 · 执行部",
+      body: "《9/13 当晚行程与人员往来记录》\n\n17:30  上海活动场地入场\n19:10  活动结束，艺人退场\n19:40  原定飞杭州（后取消，见车辆安排）\n22:35  林安临时到访\n22:58  林安离开（车辆记录连续，可查）\n23:08  沈溪离开房间附近\n23:20  陈屿驾车离开（停车场出场记录、道路收费记录均可查）\n\n备注：贺寻当晚负责周年物料与场地设备衔接，其深夜行踪不在本表统计范围内——设备组通常不需要打卡。",
     },
-    callsheet: {
-      title: "0914_杭州录制call sheet.pdf",
-      meta: "最后编辑 09-11 16:00 · 制片组",
-      body: "《9/14 杭州录制 Call Sheet》\n\n07:30  酒店大堂集合\n08:15  抵达录制棚\n09:00  化妆造型\n10:00  正式录制\n18:00  预计收工\n\n随行：经纪人 1 名、化妆师 1 名、助理 1 名。",
+    f02: {
+      title: "周林争吵_现场录音.m4a",
+      meta: "现场备用录音 · 22:36 前后",
+      body: "（文字转录，音质一般，部分字词无法确认）\n\n林安：你让他们把那段放回去。\n周晏星：放回什么？一个没出道的人？\n林安：ECHO那个群还在，所有人说过什么都在。\n周晏星：那你就登进去看看。你连密码都不一定记得。\n\n（后面被脚步声打断，没有更多内容）",
     },
-    vehicle: {
-      title: "车辆安排.xlsx",
-      meta: "最后编辑 09-13 19:31 · 陈屿",
-      body: null,
-      special: "vehicle",
+    f03: {
+      title: "林安_旧平台风险备注.txt",
+      meta: "最后编辑 2021-03 · 舆情组存档",
+      body: "平台：ECHO\n旧账号尾号：_716\n状态：长期未登录\n备注：出道前的群聊记录如果还在，不排除仍可访问，建议持续观察，暂不处理。",
     },
-    flight: {
-      title: "航班确认.pdf",
-      meta: "出票 09-10 · 差旅组",
-      body: "《航班确认单》\n\n乘客：周晏星\n航班：MU5301\n09-13 21:15  上海虹桥 T2 → 杭州萧山 T3\n舱位：头等舱\n状态：已出票\n\n（该航段后续状态见『车辆安排』文件）",
+    f04: {
+      title: "艺人关系风险评估_2019.txt",
+      meta: "2019 归档 · 经手人：陈屿",
+      body: "对象：周晏星／Z女士\n经纪执行确认：双方自练习生阶段起存在稳定私人关系。\n商业评估：周晏星当前人气测试、镜头反馈与品牌意向显著高于同组候选人。\n处理建议：不调整出道位，不启动纪律处分；对外按『无确证／私生联想』处理。\n经手人：陈屿",
+      key: true,
+      clue: "c37",
     },
-    brand: {
-      title: "BRAND_A_现场要求.pdf",
-      meta: "品牌方提供 · 08-28",
-      body: "《品牌 A 现场执行要求》\n\n1. 舞台走位需于活动前完成三次彩排\n2. 艺人到场时间不晚于开场前 90 分钟\n3. 禁止在活动现场进行未授权拍摄\n4. 物料摆放以品牌方最终确认版本为准\n\n（以下为具体点位图，此处省略）",
+    f05: {
+      title: "周年企划权限交接.txt",
+      meta: "最后编辑 09-12 16:20 · 项目组",
+      body: "项目：《晏星的七年留言》\n素材执行：HX_PROD\n权限：Bubble 公开发送内容导出\n禁止访问：私人同步区、隐藏迁移存档",
+      historyId: "f05",
+      historyLabel: "查看导出记录历史版本",
+      historyClue: "c38",
+      historyBody: "09-12 16:20｜HX_PROD｜获得临时导出权限\n09-12 17:04｜HX_PROD｜导出公开周年消息\n\n【历史版本，02:21 之后被本人尝试删除，仅存缓存】\n09-12 17:12｜HX_PROD｜查看私人消息预览：『周年活动结束以后，我们能不能重新开始？』\n09-12 17:19｜HX_PROD｜搜索联系人备注『昭』\n09-12 17:23｜HX_PROD｜下载 2018–2019 迁移存档\n09-14 02:21｜HX_PROD｜尝试删除访问历史",
     },
-    koubo: {
-      title: "直播口播_final.docx",
-      meta: "最后编辑 09-05 · 文案组",
-      body: "《巡演预告直播口播 · 终版》\n\n大家好呀～巡演倒计时真的越来越近了，杭州的姐妹准备好了吗！这次的舞台效果真的超级用心，希望到时候能给大家一个惊喜～记得关注官方账号获取最新消息哦！",
+    a01: {
+      title: "员工通道记录.txt",
+      meta: "门禁系统导出 · 当前版本",
+      body: "23:20｜陈屿车辆离场\n00:27｜物业接到报警",
+      historyId: "a01",
+      historyLabel: "查看历史版本",
+      historyClue: "c39",
+      historyBody: "23:20｜陈屿车辆离场\n\n【历史版本，02:14 由 HX_PROD 编辑，删除下列 2 行】\n23:46｜员工内部通道｜HX_PROD｜验证成功\n00:11｜舞台设备通道｜HX_PROD｜手动放行\n\n00:27｜物业接到报警",
     },
-    special: {
-      title: "YX_特殊事项.txt",
-      meta: "最后编辑 06-02 · 艺人组",
-      body: "特殊事项备注：\n- 对某类香精轻微过敏，化妆间请勿使用含该成分喷雾\n- 饮食偏好见附表（略）\n- 采访前需 10 分钟独处时间，请各组协调安排",
-    },
-    makeup: {
-      title: "妆发确认.jpg",
-      meta: "09-11 · 化妆组",
+    a02: {
+      title: "场馆清点证明.jpg",
+      meta: "00:02 拍摄 · 设备组内部留存",
       image: true,
+      imageNote: "照片时间戳 00:02，画面里只拍到一件黑色工作外套，没有拍到脸。",
+      key: true,
+      clue: "c40",
     },
-    statement: {
-      title: "statement 版本对比",
-      meta: "0914_statement_v1.docx → 0914_statement_final.docx",
-      diff: true,
-    },
-    prnotes: {
-      title: "PR_notes.txt",
-      meta: "最后编辑 09-14 04:50 · 公关组（内部）",
-      body: "对外口径要点：\n\n· 杭州行程不写\n· 私人访客不写\n· 以警方最终口径为准\n· 不回应网络定位截图\n\n以上为内部沟通要点，不对外发送。",
-    },
-    visitorlog: {
-      title: "访客异常记录.txt",
-      meta: "前台/安保台记录 · 未对外公开",
-      body: "09-13 21:40  一名男子来访，自称『苏昭男友』，说想在楼下等她，登记后允许在大堂等候，后自行离开，未上楼。\n\n09-13 23:30  同一人再次出现在小区附近。这次没有走大堂登记——地下车库门禁 23:29 有一次外部读卡异常，具体是谁刷的卡没有查清楚，监控角度也没拍全。\n\n当时值班的觉得没什么大不了，没往上报。现在回头看，这条记录应该早点交上去。",
+    a03: {
+      title: "监控维修申请.txt",
+      meta: "申请人：HX_PROD",
+      body: "申请人：HX_PROD\n区域：员工内部通道至舞台设备通道\n维修窗口：09-13 22:00 至 09-14 06:00\n\n（该区域监控在此窗口内不可用，属常规报修）",
     },
   };
 
@@ -240,6 +253,18 @@
       return;
     }
 
+    if (node && node.gated && !F_DOCS.every((d) => openedF.has(d))) {
+      app.innerHTML = `
+        <div class="crumbs" id="crumbs"></div>
+        <div class="panel doc-view">
+          <div class="dtitle">🔒 06_安保</div>
+          <div class="doc-body">这个文件夹暂不可访问。把陈屿经纪人文件夹里的 5 份文件都看完，再回来试试。</div>
+        </div>
+      `;
+      renderCrumbs(app.querySelector("#crumbs"), path);
+      return;
+    }
+
     if (node && node.type === "folder") {
       app.innerHTML = `
         <div class="crumbs" id="crumbs"></div>
@@ -252,55 +277,17 @@
 
     if (node && node.type === "file") {
       const doc = DOCS[node.doc];
-      if (node.key) {
-        opened.add(node.doc);
-        sessionStorage.setItem("gw-opened", JSON.stringify([...opened]));
-      }
+      markFOpened(node.doc);
+      if (doc?.key) markClueReady(doc.clue);
       app.innerHTML = `
         <div class="crumbs" id="crumbs"></div>
         <div class="panel doc-view" id="docview"></div>
         <div id="return-slot"></div>
       `;
       renderCrumbs(app.querySelector("#crumbs"), path);
-      if (node.locked && !unlockedFiles.has(node.doc)) {
-        renderFileGate(app.querySelector("#docview"), doc, node);
-      } else {
-        renderDoc(app.querySelector("#docview"), doc, node);
-      }
+      renderDoc(app.querySelector("#docview"), doc, node);
       renderReturnSlot(app.querySelector("#return-slot"));
     }
-  }
-
-  // 这个文件的解锁口令跟站点整体的『安全验证』不是一回事——单独锁了
-  // 一层，答案是苏昭那个账号的名字（拾光の猫），玩家得先自己在别处
-  // 找到这个账号才知道要填什么。
-  function renderFileGate(el, doc, node) {
-    el.innerHTML = `
-      <div class="dtitle">${doc.title}</div>
-      <div class="dmeta">此文件已加密，需要单独验证</div>
-      <div class="gate-card" style="padding:18px;">
-        <p style="margin:0 0 14px;">这份记录涉及个人隐私，需要输入与本次事件相关的一个账号名称才能查看。</p>
-        <input id="file-gate-input" type="text" placeholder="账号名称" autocomplete="off" style="margin-bottom:10px;" />
-        <button id="file-gate-btn">验证并查看</button>
-        <div id="file-gate-msg"></div>
-      </div>
-    `;
-    const input = el.querySelector("#file-gate-input");
-    const msg = el.querySelector("#file-gate-msg");
-    function tryFileUnlock() {
-      const val = input.value.trim().toLowerCase().replace(/[\s@._-]/g, "");
-      const accepted = ["拾光の猫", "拾光猫", "拾光", "shiguangneko"].map((s) => s.toLowerCase().replace(/[\s@._-]/g, ""));
-      if (accepted.includes(val)) {
-        unlockedFiles.add(node.doc);
-        sessionStorage.setItem("gw-unlocked-files", JSON.stringify([...unlockedFiles]));
-        renderDoc(el, doc, node);
-        renderReturnSlot(document.getElementById("return-slot"));
-        return;
-      }
-      msg.innerHTML = `<div class="gate-err">账号名称不正确。</div>`;
-    }
-    el.querySelector("#file-gate-btn").addEventListener("click", tryFileUnlock);
-    input.addEventListener("keydown", (e) => { if (e.key === "Enter") tryFileUnlock(); });
   }
 
   function renderCrumbs(el, path) {
@@ -317,16 +304,19 @@
   function renderListing(el, node, path) {
     const children = node.children || node;
     const entries = Object.entries(children);
-    el.innerHTML = entries.map(([name, n]) => `
-      <div class="row" data-name="${name}">
-        <div class="ic ${n.type === "file" ? "file" : ""}">${n.type === "folder" ? "📁" : (n.locked && !unlockedFiles.has(n.doc) ? "🔒" : "📄")}</div>
+    el.innerHTML = entries.map(([name, n]) => {
+      const gatedLocked = n.gated && !F_DOCS.every((d) => openedF.has(d));
+      return `
+      <div class="row ${gatedLocked ? "locked" : ""}" data-name="${name}">
+        <div class="ic ${n.type === "file" ? "file" : ""}">${n.type === "folder" ? (gatedLocked ? "🔒" : "📁") : "📄"}</div>
         <div class="meta">
           <div class="name">${name}</div>
-          <div class="sub2">${n.type === "folder" ? "文件夹" : (n.locked && !unlockedFiles.has(n.doc) ? "已加密" : (DOCS[n.doc]?.meta || ""))}</div>
+          <div class="sub2">${n.type === "folder" ? (gatedLocked ? "尚未解锁 · 先看完经纪人文件夹" : "文件夹") : (DOCS[n.doc]?.meta || "")}</div>
         </div>
-        <div class="chev">›</div>
+        <div class="chev">${gatedLocked ? "" : "›"}</div>
       </div>
-    `).join("");
+    `;
+    }).join("");
     el.querySelectorAll(".row").forEach((r) => {
       r.addEventListener("click", () => render([...path, r.dataset.name]));
     });
@@ -335,17 +325,8 @@
   function renderDoc(el, doc, node) {
     if (!doc) { el.innerHTML = "文件不存在或已被移除。"; return; }
     let bodyHtml = "";
-    if (doc.diff) {
-      bodyHtml = `
-        <div class="diff-label">v1（内部初稿）</div>
-        <div class="diff-old">艺人晏星于昨晚结束<b>上海活动</b>后，<b>因个人原因</b>返回住所，途中发生意外离世。</div>
-        <div class="diff-label">final（对外发布版）</div>
-        <div class="diff-new">艺人晏星于昨晚<b>结束工作后</b>返回住所途中发生意外离世。</div>
-      `;
-    } else if (doc.special === "vehicle") {
-      bodyHtml = `<div class="doc-body mono">工作表 · 车辆安排\n\n行 | 时间   | 内容\n1  | 19:26  | 陈屿：YX车辆取消机场送机\n2  | 19:31  | 司机：已确认\n3  | 21:00  | （空）\n4  | 21:15  | （空，原定航班时段）</div>`;
-    } else if (doc.image) {
-      bodyHtml = `<div class="doc-body" style="text-align:center;color:var(--ink-faint);">🖼 图片预览不可用（访客模式）</div>`;
+    if (doc.image) {
+      bodyHtml = `<div class="doc-body" style="text-align:center;color:var(--ink-faint);">🖼 图片预览不可用（访客模式）${doc.imageNote ? `<div style="margin-top:8px;font-size:12px;">${escapeHtml(doc.imageNote)}</div>` : ""}</div>`;
     } else {
       bodyHtml = `<div class="doc-body">${escapeHtml(doc.body || "")}</div>`;
     }
@@ -353,17 +334,35 @@
       <div class="dtitle">${doc.title}</div>
       <div class="dmeta">${doc.meta}</div>
       ${bodyHtml}
-      ${node.key ? `<div class="found-tag">已记录到调查笔记</div>` : ""}
+      ${doc.key ? `<div class="found-tag">已记录到调查笔记</div>` : ""}
+      ${doc.historyId ? `<div id="hist-slot"></div>` : ""}
     `;
+    if (doc.historyId) {
+      renderHistoryToggle(el.querySelector("#hist-slot"), doc);
+    }
+  }
+
+  function renderHistoryToggle(el, doc) {
+    if (revealed.has(doc.historyId)) {
+      el.innerHTML = `<div class="doc-body mono" style="margin-top:10px;">${escapeHtml(doc.historyBody)}</div><div class="found-tag">已记录到调查笔记</div>`;
+      return;
+    }
+    el.innerHTML = `<div class="history-toggle">‹ ${doc.historyLabel}</div>`;
+    el.querySelector(".history-toggle").addEventListener("click", () => {
+      markRevealed(doc.historyId);
+      markClueReady(doc.historyClue);
+      renderHistoryToggle(el, doc);
+      renderReturnSlot(document.getElementById("return-slot"));
+    });
   }
 
   function renderReturnSlot(el) {
-    const ready = KEY_DOCS.every((d) => opened.has(d));
-    if (!ready) { el.innerHTML = ""; return; }
+    if (!readyClues.size) { el.innerHTML = ""; return; }
+    const list = [...readyClues].join(",");
     el.innerHTML = `
       <div class="return-panel">
         <p>你已经翻到了关键文件。</p>
-        <a href="${RETURN_BASE}?clue=c32,c33,c34">‹ 返回超话继续调查</a>
+        <a href="${RETURN_BASE}?clue=${list}">‹ 返回超话继续调查</a>
       </div>
     `;
   }
@@ -374,8 +373,10 @@
     return div.innerHTML;
   }
 
-  // 访问口令：命名规律是『日期 + run』（见 cy_notes 那条死链的评论），
-  // 具体日期不给——接受几种常见的输入变体，不做大小写/分隔符敏感匹配。
+  // 访问口令：命名规律是『日期 + run』。玩家完成 PT1 死亡时间推理后，
+  // 私信页给出的『打开陈屿_经纪人文件夹』链接会直接带上 ?code=0913run，
+  // 免得已经推理成功的玩家还要在这里再卡一次；没有带参数进来的话，
+  // 手动输入这个口令依然有效（格式提示：日期+run，全小写不带分隔符）。
   const CODE = "0913run";
   let gateAttempts = 0;
   const gateWrap = document.getElementById("gate-wrap");
@@ -387,13 +388,17 @@
     return s.trim().toLowerCase().replace(/[\s\-_./]/g, "");
   }
 
+  function unlockSite() {
+    sessionStorage.setItem("gw-verified", "1");
+    gateWrap.hidden = true;
+    app.hidden = false;
+    render([]);
+  }
+
   function tryUnlock() {
     const val = normalizeCode(gateInput.value);
     if (val === CODE || val.endsWith(CODE) || val === "gxyx" + CODE) {
-      sessionStorage.setItem("gw-verified", "1");
-      gateWrap.hidden = true;
-      app.hidden = false;
-      render([]);
+      unlockSite();
       return;
     }
     gateAttempts++;
@@ -407,10 +412,12 @@
   document.getElementById("gate-btn").addEventListener("click", tryUnlock);
   gateInput.addEventListener("keydown", (e) => { if (e.key === "Enter") tryUnlock(); });
 
+  const urlCode = new URLSearchParams(location.search).get("code");
   if (sessionStorage.getItem("gw-verified") === "1") {
-    gateWrap.hidden = true;
-    app.hidden = false;
-    render([]);
+    unlockSite();
+  } else if (urlCode && normalizeCode(urlCode) === CODE) {
+    unlockSite();
+    history.replaceState(null, "", location.pathname);
   }
 </script>
 </body>
