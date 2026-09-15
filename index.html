@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GALAXY WORKSPACE</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#f3f4f7; --surface:#ffffff; --surface-2:#eef0f4;
+    --ink:#1c2230; --ink-soft:#5b6272; --ink-faint:#9aa1b0;
+    --line:#e0e2e8; --accent:#3a5bd9; --accent-soft:#e8edfc;
+    --warn:#c6501f; --warn-soft:#fbeee5;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; background:var(--bg); color:var(--ink);
+    font-family:"Inter","Noto Sans SC",system-ui,sans-serif;
+  }
+  .mono{font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums;}
+  header{
+    background:var(--surface); border-bottom:1px solid var(--line);
+    padding:14px 20px; display:flex; align-items:center; gap:10px;
+    position:sticky; top:0; z-index:5;
+  }
+  header .mark{
+    width:26px;height:26px;border-radius:6px;background:var(--accent);
+    display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;
+  }
+  header .word{font-weight:700;font-size:14.5px;letter-spacing:.02em;}
+  header .sub{font-size:11.5px;color:var(--ink-faint);margin-left:4px;}
+  #app{max-width:760px;margin:0 auto;padding:20px 16px 60px;}
+  .crumbs{font-size:12.5px;color:var(--ink-faint);margin-bottom:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .crumbs b{color:var(--ink);font-weight:600;}
+  .crumbs span.seg{cursor:pointer;}
+  .crumbs span.seg:hover{color:var(--accent);}
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;}
+  .panel + .panel{margin-top:14px;}
+  .row{
+    display:flex; align-items:center; gap:12px; padding:12px 16px;
+    border-bottom:1px solid var(--line); cursor:pointer;
+  }
+  .row:last-child{border-bottom:none;}
+  .row:hover{background:var(--surface-2);}
+  .row .ic{
+    width:34px;height:34px;border-radius:8px;flex:none;
+    display:flex;align-items:center;justify-content:center;font-size:15px;
+    background:var(--accent-soft);color:var(--accent);
+  }
+  .row .ic.file{background:var(--surface-2);color:var(--ink-soft);}
+  .row .meta{flex:1;min-width:0;}
+  .row .name{font-size:13.5px;font-weight:500;color:var(--ink);}
+  .row .sub2{font-size:11px;color:var(--ink-faint);margin-top:1px;}
+  .row .chev{color:var(--ink-faint);font-size:12px;}
+  .doc-view{padding:20px;}
+  .doc-view .dtitle{font-size:14.5px;font-weight:600;margin-bottom:2px;}
+  .doc-view .dmeta{font-size:11.5px;color:var(--ink-faint);margin-bottom:16px;}
+  .doc-body{
+    background:var(--surface-2); border:1px solid var(--line); border-radius:8px;
+    padding:16px 18px; font-size:13px; line-height:1.9; color:var(--ink);
+    white-space:pre-wrap;
+  }
+  .doc-body.mono{font-family:"JetBrains Mono",monospace;font-size:12.5px;}
+  .diff-old{background:#fdeceb;border:1px solid #f3c5c0;border-radius:8px;padding:14px 16px;font-size:13px;line-height:1.8;margin-bottom:10px;}
+  .diff-new{background:#eaf7ee;border:1px solid #bfe6cc;border-radius:8px;padding:14px 16px;font-size:13px;line-height:1.8;}
+  .diff-label{font-family:"JetBrains Mono",monospace;font-size:10.5px;color:var(--ink-faint);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;}
+  .back-row{margin-top:16px;font-size:12.5px;color:var(--accent);cursor:pointer;}
+  .back-row:hover{text-decoration:underline;}
+  .found-tag{
+    display:inline-flex;align-items:center;gap:5px;margin-top:14px;
+    font-size:11px;color:var(--accent);background:var(--accent-soft);
+    border-radius:100px;padding:3px 10px;font-family:"JetBrains Mono",monospace;
+  }
+  .notice{
+    background:var(--warn-soft); border:1px solid #f0cdb4; color:var(--warn);
+    border-radius:8px; padding:10px 14px; font-size:12px; margin-bottom:14px; line-height:1.6;
+  }
+  .return-panel{
+    margin-top:20px; padding:16px; background:var(--surface); border:1px solid var(--line);
+    border-radius:10px; text-align:center;
+  }
+  .return-panel a{color:var(--accent);font-size:13px;text-decoration:none;font-weight:600;}
+  .return-panel a:hover{text-decoration:underline;}
+  .return-panel p{font-size:11.5px;color:var(--ink-faint);margin:0 0 10px;}
+  [hidden]{display:none!important;}
+</style>
+</head>
+<body>
+<header>
+  <div class="mark">G</div>
+  <div class="word">GALAXY WORKSPACE</div>
+  <div class="sub">共享文件 · 访客模式</div>
+</header>
+<div id="app"></div>
+
+<script>
+  const RETURN_BASE = "https://saraliuxt-coder.github.io/idol-fall/";
+  const KEY_DOCS = ["vehicle", "statement", "prnotes"];
+  const opened = new Set(JSON.parse(sessionStorage.getItem("gw-opened") || "[]"));
+
+  const TREE = {
+    "晏星_0913行程执行": {
+      type: "folder",
+      children: {
+        "01_流程": { type: "folder", children: {
+          "0913_执行单_v3.pdf": { type: "file", doc: "runsheet" },
+          "0914_杭州录制call_sheet.pdf": { type: "file", doc: "callsheet" },
+        }},
+        "02_交通": { type: "folder", children: {
+          "车辆安排.xlsx": { type: "file", doc: "vehicle", key: true },
+          "航班确认.pdf": { type: "file", doc: "flight" },
+        }},
+        "03_商务": { type: "folder", children: {
+          "BRAND_A_现场要求.pdf": { type: "file", doc: "brand" },
+          "直播口播_final.docx": { type: "file", doc: "koubo" },
+        }},
+        "04_艺人": { type: "folder", children: {
+          "YX_特殊事项.txt": { type: "file", doc: "special" },
+          "妆发确认.jpg": { type: "file", doc: "makeup" },
+        }},
+        "05_PR": { type: "folder", children: {
+          "0914_statement_v1.docx": { type: "file", doc: "statement", key: true },
+          "0914_statement_final.docx": { type: "file", doc: "statement", key: true },
+          "PR_notes.txt": { type: "file", doc: "prnotes", key: true },
+        }},
+      }
+    }
+  };
+
+  const DOCS = {
+    runsheet: {
+      title: "0913_执行单_v3.pdf",
+      meta: "最后编辑 09-12 22:40 · 执行部",
+      body: "《9/13 执行单 v3》\n\n17:30  上海活动场地入场\n18:00  品牌活动开始\n19:10  活动结束，艺人退场\n19:40  前往虹桥机场\n21:15  MU5301  上海虹桥 → 杭州萧山\n22:10  杭州酒店入住\n\n备注：次日 10:00 杭州录制，07:30 酒店集合。",
+    },
+    callsheet: {
+      title: "0914_杭州录制call sheet.pdf",
+      meta: "最后编辑 09-11 16:00 · 制片组",
+      body: "《9/14 杭州录制 Call Sheet》\n\n07:30  酒店大堂集合\n08:15  抵达录制棚\n09:00  化妆造型\n10:00  正式录制\n18:00  预计收工\n\n随行：经纪人 1 名、化妆师 1 名、助理 1 名。",
+    },
+    vehicle: {
+      title: "车辆安排.xlsx",
+      meta: "最后编辑 09-13 19:31 · 陈屿",
+      body: null,
+      special: "vehicle",
+    },
+    flight: {
+      title: "航班确认.pdf",
+      meta: "出票 09-10 · 差旅组",
+      body: "《航班确认单》\n\n乘客：周晏星\n航班：MU5301\n09-13 21:15  上海虹桥 T2 → 杭州萧山 T3\n舱位：头等舱\n状态：已出票\n\n（该航段后续状态见『车辆安排』文件）",
+    },
+    brand: {
+      title: "BRAND_A_现场要求.pdf",
+      meta: "品牌方提供 · 08-28",
+      body: "《品牌 A 现场执行要求》\n\n1. 舞台走位需于活动前完成三次彩排\n2. 艺人到场时间不晚于开场前 90 分钟\n3. 禁止在活动现场进行未授权拍摄\n4. 物料摆放以品牌方最终确认版本为准\n\n（以下为具体点位图，此处省略）",
+    },
+    koubo: {
+      title: "直播口播_final.docx",
+      meta: "最后编辑 09-05 · 文案组",
+      body: "《巡演预告直播口播 · 终版》\n\n大家好呀～巡演倒计时真的越来越近了，杭州的姐妹准备好了吗！这次的舞台效果真的超级用心，希望到时候能给大家一个惊喜～记得关注官方账号获取最新消息哦！",
+    },
+    special: {
+      title: "YX_特殊事项.txt",
+      meta: "最后编辑 06-02 · 艺人组",
+      body: "特殊事项备注：\n- 对某类香精轻微过敏，化妆间请勿使用含该成分喷雾\n- 饮食偏好见附表（略）\n- 采访前需 10 分钟独处时间，请各组协调安排",
+    },
+    makeup: {
+      title: "妆发确认.jpg",
+      meta: "09-11 · 化妆组",
+      image: true,
+    },
+    statement: {
+      title: "statement 版本对比",
+      meta: "0914_statement_v1.docx → 0914_statement_final.docx",
+      diff: true,
+    },
+    prnotes: {
+      title: "PR_notes.txt",
+      meta: "最后编辑 09-14 04:50 · 公关组（内部）",
+      body: "对外口径要点：\n\n· 杭州行程不写\n· 私人访客不写\n· 以警方最终口径为准\n· 不回应网络定位截图\n\n以上为内部沟通要点，不对外发送。",
+    },
+  };
+
+  function render(path) {
+    const app = document.getElementById("app");
+    let node = TREE;
+    let crumbs = [];
+    for (const seg of path) {
+      crumbs.push(seg);
+      node = node[seg] ? node[seg] : (node.children ? node.children[seg] : null);
+    }
+
+    if (!path.length) {
+      app.innerHTML = `
+        <div class="notice">这是一个未授权访问的公开分享链接。内容可能已过期或部分不可用。</div>
+        <div class="crumbs"><b>共享文件</b></div>
+        <div class="panel" id="listing"></div>
+      `;
+      renderListing(app.querySelector("#listing"), TREE, []);
+      return;
+    }
+
+    if (node && node.type === "folder") {
+      app.innerHTML = `
+        <div class="crumbs" id="crumbs"></div>
+        <div class="panel" id="listing"></div>
+      `;
+      renderCrumbs(app.querySelector("#crumbs"), path);
+      renderListing(app.querySelector("#listing"), node, path);
+      return;
+    }
+
+    if (node && node.type === "file") {
+      const doc = DOCS[node.doc];
+      if (node.key) {
+        opened.add(node.doc);
+        sessionStorage.setItem("gw-opened", JSON.stringify([...opened]));
+      }
+      app.innerHTML = `
+        <div class="crumbs" id="crumbs"></div>
+        <div class="panel doc-view" id="docview"></div>
+        <div id="return-slot"></div>
+      `;
+      renderCrumbs(app.querySelector("#crumbs"), path);
+      renderDoc(app.querySelector("#docview"), doc, node);
+      renderReturnSlot(app.querySelector("#return-slot"));
+    }
+  }
+
+  function renderCrumbs(el, path) {
+    el.innerHTML = `<span class="seg" data-idx="-1"><b>共享文件</b></span>` +
+      path.map((seg, i) => ` / <span class="seg" data-idx="${i}">${seg}</span>`).join("");
+    el.querySelectorAll(".seg").forEach((s) => {
+      s.addEventListener("click", () => {
+        const idx = parseInt(s.dataset.idx, 10);
+        render(idx < 0 ? [] : path.slice(0, idx + 1));
+      });
+    });
+  }
+
+  function renderListing(el, node, path) {
+    const children = node.children || node;
+    const entries = Object.entries(children);
+    el.innerHTML = entries.map(([name, n]) => `
+      <div class="row" data-name="${name}">
+        <div class="ic ${n.type === "file" ? "file" : ""}">${n.type === "folder" ? "📁" : "📄"}</div>
+        <div class="meta">
+          <div class="name">${name}</div>
+          <div class="sub2">${n.type === "folder" ? "文件夹" : (DOCS[n.doc]?.meta || "")}</div>
+        </div>
+        <div class="chev">›</div>
+      </div>
+    `).join("");
+    el.querySelectorAll(".row").forEach((r) => {
+      r.addEventListener("click", () => render([...path, r.dataset.name]));
+    });
+  }
+
+  function renderDoc(el, doc, node) {
+    if (!doc) { el.innerHTML = "文件不存在或已被移除。"; return; }
+    let bodyHtml = "";
+    if (doc.diff) {
+      bodyHtml = `
+        <div class="diff-label">v1（内部初稿）</div>
+        <div class="diff-old">艺人晏星于昨晚结束<b>上海活动</b>后，<b>因个人原因</b>返回住所，途中发生意外离世。</div>
+        <div class="diff-label">final（对外发布版）</div>
+        <div class="diff-new">艺人晏星于昨晚<b>结束工作后</b>返回住所途中发生意外离世。</div>
+      `;
+    } else if (doc.special === "vehicle") {
+      bodyHtml = `<div class="doc-body mono">工作表 · 车辆安排\n\n行 | 时间   | 内容\n1  | 19:26  | 陈屿：YX车辆取消机场送机\n2  | 19:31  | 司机：已确认\n3  | 21:00  | （空）\n4  | 21:15  | （空，原定航班时段）</div>`;
+    } else if (doc.image) {
+      bodyHtml = `<div class="doc-body" style="text-align:center;color:var(--ink-faint);">🖼 图片预览不可用（访客模式）</div>`;
+    } else {
+      bodyHtml = `<div class="doc-body">${escapeHtml(doc.body || "")}</div>`;
+    }
+    el.innerHTML = `
+      <div class="dtitle">${doc.title}</div>
+      <div class="dmeta">${doc.meta}</div>
+      ${bodyHtml}
+      ${node.key ? `<div class="found-tag">已记录到调查笔记</div>` : ""}
+    `;
+  }
+
+  function renderReturnSlot(el) {
+    const ready = KEY_DOCS.every((d) => opened.has(d));
+    if (!ready) { el.innerHTML = ""; return; }
+    el.innerHTML = `
+      <div class="return-panel">
+        <p>你已经翻到了关键文件。</p>
+        <a href="${RETURN_BASE}?clue=c32,c33,c34">‹ 返回超话继续调查</a>
+      </div>
+    `;
+  }
+
+  function escapeHtml(s) {
+    const div = document.createElement("div");
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  render([]);
+</script>
+</body>
+</html>
