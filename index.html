@@ -172,6 +172,10 @@
     "06_安保": {
       type: "folder",
       gated: true,
+      // 陈屿文件夹全部打开后还不能直接进——这一层是单独的内部口令，
+      // 答案是团体出道前用过的队名，得先登进 ECHO 才能拼出来，跟 F03
+      // 那道"苏昭账号名"的锁是同一种设计思路。
+      folderPassword: ["nova5", "nova 5", "nova-5"],
       children: {
         "A01_员工通道记录.txt": { type: "file", doc: "a01" },
         "A02_楼栋安保巡查照片.jpg": { type: "file", doc: "a02" },
@@ -179,6 +183,7 @@
       }
     }
   };
+  const unlockedFolders = new Set(JSON.parse(sessionStorage.getItem("gw-unlocked-folders") || "[]"));
 
   const DOCS = {
     f02: {
@@ -264,6 +269,16 @@
       return;
     }
 
+    if (node && node.gated && node.folderPassword && !unlockedFolders.has(path[path.length - 1])) {
+      app.innerHTML = `
+        <div class="crumbs" id="crumbs"></div>
+        <div class="panel doc-view" id="docview"></div>
+      `;
+      renderCrumbs(app.querySelector("#crumbs"), path);
+      renderFolderGate(app.querySelector("#docview"), node, path);
+      return;
+    }
+
     if (node && node.type === "folder") {
       app.innerHTML = `
         <div class="crumbs" id="crumbs"></div>
@@ -322,6 +337,37 @@
     }
     el.querySelector("#file-gate-btn").addEventListener("click", tryFileUnlock);
     input.addEventListener("keydown", (e) => { if (e.key === "Enter") tryFileUnlock(); });
+  }
+
+  // 06_安保这一层的内部口令，跟陈屿文件夹的解锁条件（F01-F04全部打开）
+  // 是两回事——答案是团体出道前的队名，要先登进 ECHO 才能拼出来。
+  function renderFolderGate(el, node, path) {
+    const folderName = path[path.length - 1];
+    el.innerHTML = `
+      <div class="dtitle">🔒 ${folderName}</div>
+      <div class="dmeta">这个文件夹需要额外的内部口令</div>
+      <div class="gate-card" style="padding:18px;">
+        <p style="margin:0 0 14px;">内部口令？</p>
+        <input id="folder-gate-input" type="text" placeholder="……" autocomplete="off" style="margin-bottom:10px;" />
+        <button id="folder-gate-btn">验证并进入</button>
+        <div id="folder-gate-msg"></div>
+      </div>
+    `;
+    const input = el.querySelector("#folder-gate-input");
+    const msg = el.querySelector("#folder-gate-msg");
+    function tryFolderUnlock() {
+      const val = normalizeAnswer(input.value);
+      const accepted = (node.folderPassword || []).map(normalizeAnswer);
+      if (accepted.includes(val)) {
+        unlockedFolders.add(folderName);
+        sessionStorage.setItem("gw-unlocked-folders", JSON.stringify([...unlockedFolders]));
+        render(path);
+        return;
+      }
+      msg.innerHTML = `<div class="gate-err">不正确。</div>`;
+    }
+    el.querySelector("#folder-gate-btn").addEventListener("click", tryFolderUnlock);
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") tryFolderUnlock(); });
   }
 
   function renderCrumbs(el, path) {
