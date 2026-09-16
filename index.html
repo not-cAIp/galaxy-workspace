@@ -175,7 +175,7 @@
       // 陈屿文件夹全部打开后还不能直接进——这一层是单独的内部口令，
       // 答案是团体出道前用过的队名，得先登进 ECHO 才能拼出来，跟 F03
       // 那道"苏昭账号名"的锁是同一种设计思路。
-      folderPassword: ["nova5", "nova 5", "nova-5"],
+      folderPassword: ["nov5", "nov 5", "nov-5"],
       children: {
         "A01_员工通道记录.txt": { type: "file", doc: "a01" },
         "A02_楼栋安保巡查照片.jpg": { type: "file", doc: "a02" },
@@ -208,11 +208,11 @@
     f05: {
       title: "周年企划权限交接.txt",
       meta: "最后编辑 09-12 16:20 · 项目组",
-      body: "项目：《晏星的七年留言》\n素材执行：HX_PROD\n权限：Bubble 公开发送内容导出\n禁止访问：私人同步区、隐藏迁移存档",
+      body: "项目：《晏星的七年留言》\n素材执行：新_PROD\n权限：Bubble 公开发送内容导出\n禁止访问：私人同步区、隐藏迁移存档",
       historyId: "f05",
       historyLabel: "查看导出记录历史版本",
       historyClue: "c38",
-      historyBody: "09-12 16:20｜HX_PROD｜获得临时导出权限\n09-12 17:04｜HX_PROD｜导出公开周年消息\n\n【历史版本，02:21 之后被本人尝试删除，仅存缓存】\n09-12 17:12｜HX_PROD｜查看私人消息预览：『周年活动结束以后，我们能不能重新开始？』\n09-12 17:19｜HX_PROD｜搜索联系人备注『昭』\n09-12 17:23｜HX_PROD｜下载 2018–2019 迁移存档\n09-14 02:21｜HX_PROD｜尝试删除访问历史",
+      historyBody: "09-12 16:20｜新_PROD｜获得临时导出权限\n09-12 17:04｜新_PROD｜导出公开周年消息\n\n【历史版本，02:21 之后被本人尝试删除，仅存缓存】\n09-12 17:12｜新_PROD｜查看私人消息预览：『周年活动结束以后，我们能不能重新开始？』\n09-12 17:19｜新_PROD｜搜索联系人备注『昭』\n09-12 17:23｜新_PROD｜下载 2018–2019 迁移存档\n09-14 02:21｜新_PROD｜尝试删除访问历史",
     },
     a01: {
       title: "员工通道记录.txt",
@@ -221,7 +221,7 @@
       historyId: "a01",
       historyLabel: "查看历史版本",
       historyClue: "c39",
-      historyBody: "23:20｜陈屿车辆离场\n\n【历史版本，02:14 由 HX_PROD 编辑，删除下列 2 行】\n23:46｜住所员工通道｜HX_PROD｜验证成功\n00:11｜住所地下车库｜HX_PROD｜手动放行\n\n00:27｜物业接到报警",
+      historyBody: "23:20｜陈屿车辆离场\n\n【历史版本，02:14 由 新_PROD 编辑，删除下列 2 行】\n23:46｜住所员工通道｜新_PROD｜验证成功\n00:11｜住所地下车库｜新_PROD｜手动放行\n\n00:27｜物业接到报警",
     },
     a02: {
       title: "楼栋安保巡查照片.jpg",
@@ -233,8 +233,8 @@
     },
     a03: {
       title: "监控维修申请.txt",
-      meta: "申请人：HX_PROD",
-      body: "申请人：HX_PROD\n区域：住所大厦员工通道至地下车库\n维修窗口：09-13 22:00 至 09-14 06:00\n\n（该区域监控在此窗口内不可用，属常规报修。住所大厦安保由银河星途统一外包管理，门禁系统与公司其他物业共用同一套记录后台，所以陈屿和 HX_PROD 这类持有工作权限的员工都能查到住所这边的通行记录。）",
+      meta: "申请人：新_PROD",
+      body: "申请人：新_PROD\n区域：住所大厦员工通道至地下车库\n维修窗口：09-13 22:00 至 09-14 06:00\n\n（该区域监控在此窗口内不可用，属常规报修。住所大厦安保由银河星途统一外包管理，门禁系统与公司其他物业共用同一套记录后台，所以陈屿和 新_PROD 这类持有工作权限的员工都能查到住所这边的通行记录。）",
     },
   };
 
@@ -444,10 +444,9 @@
     return div.innerHTML;
   }
 
-  // 访问口令：命名规律是『日期 + run』。玩家完成 PT1 死亡时间推理后，
-  // 私信页给出的『打开陈屿_经纪人文件夹』链接会直接带上 ?code=0913run，
-  // 免得已经推理成功的玩家还要在这里再卡一次；没有带参数进来的话，
-  // 手动输入这个口令依然有效（格式提示：日期+run，全小写不带分隔符）。
+  // 访问口令：命名规律是『日期 + run』。"陪你走到最后"在私信里只会
+  // 把这个口令原样说出来，链接本身不带参数——口令必须由玩家自己手动
+  // 输进下面这个框才会解锁，不会有任何途径跳过这一步直接进站。
   const CODE = "0913run";
   let gateAttempts = 0;
   const gateWrap = document.getElementById("gate-wrap");
@@ -483,12 +482,8 @@
   document.getElementById("gate-btn").addEventListener("click", tryUnlock);
   gateInput.addEventListener("keydown", (e) => { if (e.key === "Enter") tryUnlock(); });
 
-  const urlCode = new URLSearchParams(location.search).get("code");
   if (sessionStorage.getItem("gw-verified") === "1") {
     unlockSite();
-  } else if (urlCode && normalizeCode(urlCode) === CODE) {
-    unlockSite();
-    history.replaceState(null, "", location.pathname);
   }
 </script>
 </body>
