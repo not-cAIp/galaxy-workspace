@@ -129,14 +129,10 @@
 <div id="app" hidden></div>
 
 <script>
-  const RETURN_BASE = "https://saraliuxt-coder.github.io/idol-fall/";
-
   // 4 个 F 文件全部打开后，06_安保 才会在列表里真正可点开——之前只是
   // 显示一个带锁图标的占位行，点了也没有任何反馈的死按钮不如不做。
   const F_DOCS = ["f02", "f03", "f04", "f05"];
   const openedF = new Set(JSON.parse(sessionStorage.getItem("gw-f-opened") || "[]"));
-  // 这次打开会话里已经"准备好"、还没有通过返回链接同步回主站的线索。
-  const readyClues = new Set(JSON.parse(sessionStorage.getItem("gw-ready-clues") || "[]"));
   // F05 / A01 的"查看历史版本"是否已经点开过。
   const revealed = new Set(JSON.parse(sessionStorage.getItem("gw-revealed") || "[]"));
   // f04 单独锁了一层，答案是苏昭的账号名，跟站点整体的口令不是一回事。
@@ -147,11 +143,6 @@
       openedF.add(id);
       sessionStorage.setItem("gw-f-opened", JSON.stringify([...openedF]));
     }
-  }
-  function markClueReady(clue) {
-    if (!clue || readyClues.has(clue)) return;
-    readyClues.add(clue);
-    sessionStorage.setItem("gw-ready-clues", JSON.stringify([...readyClues]));
   }
   function markRevealed(id) {
     revealed.add(id);
@@ -278,7 +269,6 @@
       app.innerHTML = `
         <div class="crumbs" id="crumbs"></div>
         <div class="panel doc-view" id="docview"></div>
-        <div id="return-slot"></div>
       `;
       renderCrumbs(app.querySelector("#crumbs"), path);
 
@@ -288,9 +278,7 @@
       }
 
       markFOpened(node.doc);
-      if (doc?.key) markClueReady(doc.clue);
       renderDoc(app.querySelector("#docview"), doc, node);
-      renderReturnSlot(app.querySelector("#return-slot"));
     }
   }
 
@@ -317,9 +305,7 @@
         unlockedFiles.add(node.doc);
         sessionStorage.setItem("gw-unlocked-files", JSON.stringify([...unlockedFiles]));
         markFOpened(node.doc);
-        if (doc?.key) markClueReady(doc.clue);
         renderDoc(el, doc, node);
-        renderReturnSlot(document.getElementById("return-slot"));
         return;
       }
       msg.innerHTML = `<div class="gate-err">不正确。</div>`;
@@ -393,21 +379,8 @@
     el.innerHTML = `<div class="history-toggle">‹ ${doc.historyLabel}</div>`;
     el.querySelector(".history-toggle").addEventListener("click", () => {
       markRevealed(doc.historyId);
-      markClueReady(doc.historyClue);
       renderHistoryToggle(el, doc);
-      renderReturnSlot(document.getElementById("return-slot"));
     });
-  }
-
-  function renderReturnSlot(el) {
-    if (!readyClues.size) { el.innerHTML = ""; return; }
-    const list = [...readyClues].join(",");
-    el.innerHTML = `
-      <div class="return-panel">
-        <p>你已经翻到了关键文件。</p>
-        <a href="${RETURN_BASE}?clue=${list}">‹ 返回超话继续调查</a>
-      </div>
-    `;
   }
 
   function escapeHtml(s) {
