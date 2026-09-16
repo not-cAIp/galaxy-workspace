@@ -419,7 +419,6 @@
       <div class="dtitle">${doc.title}</div>
       <div class="dmeta">${doc.meta}</div>
       ${bodyHtml}
-      ${doc.key ? `<div class="found-tag">已记录到调查笔记</div>` : ""}
       ${doc.historyId ? `<div id="hist-slot"></div>` : ""}
     `;
     if (doc.historyId) {
@@ -429,7 +428,7 @@
 
   function renderHistoryToggle(el, doc) {
     if (revealed.has(doc.historyId)) {
-      el.innerHTML = `<div class="doc-body mono" style="margin-top:10px;">${escapeHtml(doc.historyBody)}</div><div class="found-tag">已记录到调查笔记</div>`;
+      el.innerHTML = `<div class="doc-body mono" style="margin-top:10px;">${escapeHtml(doc.historyBody)}</div>`;
       return;
     }
     el.innerHTML = `<div class="history-toggle">‹ ${doc.historyLabel}</div>`;
