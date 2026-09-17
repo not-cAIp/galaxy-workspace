@@ -444,9 +444,13 @@
     return div.innerHTML;
   }
 
-  // 访问口令：命名规律是『日期 + run』。"陪你走到最后"在私信里只会
-  // 把这个口令原样说出来，链接本身不带参数——口令必须由玩家自己手动
-  // 输进下面这个框才会解锁，不会有任何途径跳过这一步直接进站。
+  // 访问口令：命名规律是『日期 + 当天发生的事』。"陪你走到最后"这一版
+  // 不再把完整口令原样说出来了——她只记得日期是 9 月 13 日，"run"这
+  // 半截字要靠玩家自己去微博挖一条不起眼的饭拍才能拼出来（w43/c42）。
+  // 正因为这样，下面 3 次答错后的兜底提示也不能再泄题（以前直接写
+  // 『日期+run』，等于把答案格式白送），改成只把玩家指回私信，不点破
+  // 具体格式。链接本身不带参数——口令必须由玩家自己手动输进下面这个
+  // 框才会解锁，不会有任何途径跳过这一步直接进站。
   const CODE = "0913run";
   let gateAttempts = 0;
   const gateWrap = document.getElementById("gate-wrap");
@@ -473,7 +477,7 @@
     }
     gateAttempts++;
     if (gateAttempts >= 3) {
-      gateMsg.innerHTML = `<div class="gate-hint">口令格式通常是「日期 + run」，全部小写、不带分隔符。</div>`;
+      gateMsg.innerHTML = `<div class="gate-hint">"陪你走到最后"提到的那句话，要点里够全了吗？</div>`;
     } else {
       gateMsg.innerHTML = `<div class="gate-err">口令不正确。</div>`;
     }
